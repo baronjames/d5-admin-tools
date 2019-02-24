@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dominions 5 Admin Tools</title>
+  <meta name="author" content="James Duncan">
+  <meta name="description" content="Admin tools for the game Dominions 5, mainly for Linus server admin and command line functionality.">
+  <link rel="stylesheet" href="css/main.css" type="text/css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" type="text/css">
+  <style type="text/css">
+    .nation_select_input option:checked {
+      background-color: pink;
+    }
+    .nation_select_input option:disabled {
+      background-color: pink;
+    }
+  </style>
+
+
+<!-- 
+screen ~/.steam/SteamApps/common/Dominions5/dom5.sh 
+-TS  (DEF - T: "--textonly", S: "--tcpserver")
+--nosteam (DEF - do not connect to steam, workshop is unavailable)
+--port 2333 (DEF: Game port)
+
+//Main options
+--era 1 
+
+
+//Additional options
+--renaming 
+--scoregraphs 
+--hofsize 20
+--nostoryevents (DEF - no, some or all story events, story events: --storyevents, --allstoryevents)
+--startprov X   (DEF - Number of starting provinces (1-9))
+
+//Victory conditions
+--requiredap 20 
+--thrones 5 10 0 
+
+//Players
+--teamgame (DEF - team game, yes or no)
+--clustered (DEF - Clustered start pos, for team game)
+--diffai 30 
+--team 30 1 1 
+--team 19 1 2 
+--diffai 6 
+--team 6 2 1 
+--normai 5 
+--team 5 2 2 
+--normai 12 
+--team 2 3 1 
+--normai 27 
+--team 27 3 2 
+
+//advanced
+--hours 32 (DEF - the maximum time before autohost happens)
+--statuspage turns 
+--enablemod james_test_mod_2.dm
+
+//map 
+--mapfile GIANTS.map giants_and_giants_test_2 
+-->
+</head>
+<body>
+  <div class="container">
+    <!-- Title area -->
+    <div class="title_area">
+      <div class="row">
+        <div class="col">
+          <h1 class="display-4">Dominions 5 Admin tools
+            <small class="text-muted">Some text also</small>
+          </h1>
+          <p class="lead">
+            Created by James, please <a href="#" target="_blank">raise a pull request</a> to contribute, contact: <a href="https://twitter.com/JamesPaulDuncan" target="_blank">@JamesPaulDuncan</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input_area">
+      <!-- FIRST FOW -->
+      <div class="form-row">
+        <div class="col-md-3 form-group">
+          <label for="game_name">Game name</label>
+          <input id="game_name" name="game_name" type="text" class="form-control form-control-sm" placeholder="e.g. giants_vs_giants">
+          <small class="form-text text-muted">No spaces!</small>
+        </div>
+        <div class="col-md-3 form-group">
+          <label for="game_port">Port</label>
+          <input id="game_port" name="game_port" type="number" min="1024" max="25535" class="form-control form-control-sm" placeholder="e.g. 1234">
+          <small class="form-text text-muted">Between 1024-25535</small>
+        </div>
+        <!-- ERA DROPDOWN -->
+        <div class="col-md-3 form-group">
+          <label for="era_dropdown">Era</label>
+          <select class="form-control form-control-sm" id="era_dropdown">
+            <option value="1" selected>Early Ages</option>
+            <option value="2">Middle Ages</option>
+            <option value="3">Late Ages</option>
+          </select>
+          <small class="form-text text-muted">Changing this resets nations</small>
+        </div>
+      </div>
+      <div class="form-row">
+        <!-- Add team -->
+        <div class="col-md-3 form-group">
+          <button id="do_thing" type="button" class="btn btn-outline-success btn-sm">Do thing <i class="fas fa-plus-square fa-spin"></i></button>
+        </div>
+      </div>
+      <!-- SECOND ROW -->
+      <div class="form-row">
+        <!-- Add team -->
+        <div class="col-md-3 form-group">
+          <button id="add_team_button" type="button" class="btn btn-outline-success btn-sm">Add team <i class="fas fa-plus-square"></i></button>
+        </div>
+      </div>
+
+      <div id="players_container" class="row"></div> <!-- END PLAYER CONTAINER -->
+
+    </div> <!-- END INPUT AREA -->
+
+
+
+    <div class="output_area">
+      <div class="row">
+        <div class="col">
+          <h3>Result command(s)</h3>
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Game start command</h5>
+              <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+              <p class="card-text">
+                <div class="alert alert-secondary" role="alert">
+                  <code id="result_code_block">
+                  ./dom5.sh -TS --era 2 --renaming --hofsize 20 --requiredap 14 --thrones 0 10 0 --port 2479 --hours 32 --mapfile silentseas.map jamestestgame</code>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm">Copy</button>
+                <button type="button" class="btn btn-outline-primary btn-sm">Share</button>
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+
+
+  </div>
+
+
+  <div id="debug"></div>
+
+
+
+
+
+  <!-- HANDLEBARS SCRIPTS -->
+  <script id="team_template" type="text/x-handlebars-template">
+    <div class="team_card_container col-6">
+      <div class="card mb-2">
+        <h5 class="card-header p-2">Team <span class="team_number_display"></span> <button id="team_{{team_number}}_delete" type="button" class="delete_team_button btn btn-outline-danger btn-sm float-right"><i class="fas fa-minus-square"></i></button></h5>
+        <div class="card-body p-2">
+          <div class="card-text">
+            <div class="team_pretender_container">
+              <h6>Pretender</h6>
+              <div class="form-row">
+                <div class="col form-group mb-2">
+                  <div class="input-group">
+                    <select class="nation_select_input custom-select" data-nation="-1" aria-label="Team {{team_number}} select pretender nation">
+                      <option value="-1" selected>Choose nation...</option>
+                      <option value="1">One</option>
+                      <option value="2">Two</option>
+                      <option value="3">Three</option>
+                      <option value="4">Four</option>
+                      <option value="5">Five</option>
+                      <option value="6">Six</option>
+                    </select>
+                    <div class="input-group-append">
+                      <select class="nation_difficulty_input custom-select border-left-0 rounded-right" aria-label="Team {{team_number}} select pretender difficulty">
+                        <option value="human" selected>Human</option>
+                        <option value="easyai">Easy AI</option>
+                        <option value="normai">Normal AI</option>
+                        <option value="diffai">Difficult AI</option>
+                        <option value="mightyai">Mighty AI</option>
+                        <option value="masterai">Master AI</option>
+                        <option value="impai">Impossible AI</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="team_disciple_container">
+              <h6>Disciple(s)</h6>
+              <div class="team_disciples"></div>
+              
+              <button type="button" class="add_disciple_button btn btn-outline-success btn-sm">Add disciple <i class="fas fa-plus-square"></i></button>
+            </div>
+
+            
+          </div>
+        </div>
+      </div>
+    </div>
+  </script>
+
+  <script id="team_disciple_template" type="text/x-handlebars-template">
+    <div class="disciple form-row">
+      <div class="col form-group mb-2">
+        <div class="input-group">
+          <select class="nation_select_input custom-select" data-nation="-1" aria-label="Team select disciple nation">
+            <option value="-1" selected>Choose nation...</option>
+            <option value="1">One</option>
+            <option value="2">Two</option>
+            <option value="3">Three</option>
+          </select>
+          <div class="input-group-append">
+            <select class="nation_difficulty_input custom-select rounded-0 border-right-0" aria-label="Team select disciple difficulty">
+              <option value="human" selected>Human</option>
+              <option value="easyai">Easy AI</option>
+              <option value="normai">Normal AI</option>
+              <option value="diffai">Difficult AI</option>
+              <option value="mightyai">Mighty AI</option>
+              <option value="masterai">Master AI</option>
+              <option value="impai">Impossible AI</option>
+            </select>
+            <button type="button" class="delete_disciple_button btn btn-outline-danger btn-sm"><i class="fas fa-minus-square"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </script>
+
+
+
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.12/handlebars.min.js" integrity="sha256-qlku5J3WO/ehJpgXYoJWC2px3+bZquKChi4oIWrAKoI=" crossorigin="anonymous"></script>
+  <script defer src="https://use.fontawesome.com/releases/v5.7.2/js/all.js" integrity="sha384-0pzryjIRos8mFBWMzSSZApWtPl/5++eIfzYmTgBBmXYdhvxPc+XcFEk+zJwDgWbP" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+    var nations_data_json = {
+      "early_ages": [
+      {"number": 5, "nation": "Arcoscephale", "desc":"Golden Era"},
+      {"number": 6, "nation": "Ermor", "desc":"New Faith"},
+      {"number": 7, "nation": "Ulm", "desc":"Enigma of Steel"},
+      {"number": 8, "nation": "Marverni", "desc":"Time of Druids"},
+      {"number": 9, "nation": "Sauromatia", "desc":"Amazon Queens"},
+      {"number": 10, "nation": "T’ien Ch’i", "desc":"Spring and Autumn"},
+      {"number": 11, "nation": "Machaka", "desc":"Lion Kings"},
+      {"number": 12, "nation": "Mictlan", "desc":"Reign of Blood"},
+      {"number": 13, "nation": "Abysia", "desc":"Children of Flame"},
+      {"number": 14, "nation": "Caelum", "desc":"Eagle Kings"},
+      {"number": 15, "nation": "C’tis", "desc":"Lizard Kings"},
+      {"number": 16, "nation": "Pangaea", "desc":"Age of Revelry"},
+      {"number": 17, "nation": "Agartha", "desc":"Pale Ones"},
+      {"number": 18, "nation": "Tir na n'Og", "desc":"Land of the Ever Young"},
+      {"number": 19, "nation": "Fomoria", "desc":"The Cursed Ones"},
+      {"number": 20, "nation": "Vanheim", "desc":"Age of Vanir"},
+      {"number": 21, "nation": "Helheim", "desc":"Dusk and Death"},
+      {"number": 22, "nation": "Niefelheim", "desc":"Sons of Winter"},
+      {"number": 24, "nation": "Rus", "desc":"Sons of Heaven"},
+      {"number": 25, "nation": "Kailasa", "desc":"Rise of the Ape Kings"},
+      {"number": 26, "nation": "Lanka", "desc":"Land of Demons"},
+      {"number": 27, "nation": "Yomi", "desc":"Oni Kings"},
+      {"number": 28, "nation": "Hinnom", "desc":"Sons of the Fallen"},
+      {"number": 29, "nation": "Ur", "desc":"The First City"},
+      {"number": 30, "nation": "Berytos", "desc":"Phoenix Empire"},
+      {"number": 31, "nation": "Xibalba", "desc":"Vigil of the Sun"},
+      {"number": 32, "nation": "Mekone", "desc":"Brazen Giants"},
+      {"number": 36, "nation": "Atlantis", "desc":"Emergence of the Deep Ones"},
+      {"number": 37, "nation": "R’lyeh", "desc":"Time of Aboleths"},
+      {"number": 38, "nation": "Pelagia", "desc":"Pearl Kings"},
+      {"number": 39, "nation": "Oceania", "desc":"Coming of the Capricorns"},
+      {"number": 40, "nation": "Therodos", "desc":"Telkhine Spectre"},
+      ],
+      "middle_ages": [
+      {"number": 43, "nation": "Arcoscephale", "desc": "The Old Kingdom"},
+      {"number": 44, "nation": "Ermor", "desc": "Ashen Empire"},
+      {"number": 45, "nation": "Sceleria", "desc": "Reformed Empire"},
+      {"number": 46, "nation": "Pythium", "desc": "Emerald Empire"},
+      {"number": 47, "nation": "Man", "desc": "Tower of Avalon"},
+      {"number": 48, "nation": "Eriu", "desc": "Last of the Tuatha"},
+      {"number": 49, "nation": "Ulm", "desc": "Forges of Ulm"},
+      {"number": 50, "nation": "Marignon", "desc": "Fiery Justice"},
+      {"number": 51, "nation": "Mictlan", "desc": "Reign of the Lawgiver"},
+      {"number": 52, "nation": "T’ien Ch’i", "desc": "Imperial Bureaucracy"},
+      {"number": 53, "nation": "Machaka", "desc": "Reign of Sorcerors"},
+      {"number": 54, "nation": "Agartha", "desc": "Golem Cult"},
+      {"number": 55, "nation": "Abysia", "desc": "Blood and Fire"},
+      {"number": 56, "nation": "Caelum", "desc": "Reign of the Seraphim"},
+      {"number": 57, "nation": "C’tis", "desc": "Miasma"},
+      {"number": 58, "nation": "Pangaea", "desc": "Age of Bronze"},
+      {"number": 59, "nation": "Asphodel", "desc": "Carrion Woods"},
+      {"number": 60, "nation": "Vanheim", "desc": "Arrival of Man"},
+      {"number": 61, "nation": "Jotunheim", "desc": "Iron Woods"},
+      {"number": 62, "nation": "Vanarus", "desc": "Land of the Chuds"},
+      {"number": 63, "nation": "Bandar Log", "desc": "Land of the Apes"},
+      {"number": 64, "nation": "Shinuyama", "desc": "Land of the Bakemono"},
+      {"number": 65, "nation": "Ashdod", "desc": "Reign of the Anakim"},
+      {"number": 66, "nation": "Uruk", "desc": "City States"},
+      {"number": 67, "nation": "Nazca", "desc": "Kingdom of the Sun"},
+      {"number": 68, "nation": "Xibalba", "desc": "Flooded Caves"},
+      {"number": 69, "nation": "Phlegra", "desc": "Deformed Giants"},
+      {"number": 70, "nation": "Phaeacia", "desc": "Isle of the Dark Ships"},
+      {"number": 73, "nation": "Atlantis", "desc": "Kings of the Deep"},
+      {"number": 74, "nation": "R’lyeh", "desc": "Fallen Star"},
+      {"number": 75, "nation": "Pelagia", "desc": "Triton Kings"},
+      {"number": 76, "nation": "Oceania", "desc": "Mermidons"},
+      {"number": 77, "nation": "Ys", "desc": "Morgen Queens"},
+      ],
+      "late_ages":[
+      {"number": 80, "nation": "Arcoscephale", "desc": "Sibylline Guidance"},
+      {"number": 81, "nation": "Pythium", "desc": "Serpent Cult"},
+      {"number": 82, "nation": "Lemuria", "desc": "Soul Gate"},
+      {"number": 83, "nation": "Man", "desc": "Towers of Chelms"},
+      {"number": 84, "nation": "Ulm", "desc": "Black Forest"},
+      {"number": 85, "nation": "Marignon", "desc": "Conquerors of the Sea"},
+      {"number": 86, "nation": "Mictlan", "desc": "Blood and Rain"},
+      {"number": 87, "nation": "T’ien Ch’i", "desc": "Barbarian Kings"},
+      {"number": 89, "nation": "Jomon", "desc": "Human Daimyos"},
+      {"number": 90, "nation": "Agartha", "desc": "Ktonian Dead"},
+      {"number": 91, "nation": "Abysia", "desc": "Blood of Humans"},
+      {"number": 92, "nation": "Caelum", "desc": "Return of the Raptors"},
+      {"number": 93, "nation": "C’tis", "desc": "Desert Tombs"},
+      {"number": 94, "nation": "Pangaea", "desc": "New Era"},
+      {"number": 95, "nation": "Midgård", "desc": "Age of Men"},
+      {"number": 96, "nation": "Utgård", "desc": "Well of Urd"},
+      {"number": 97, "nation": "Bogarus", "desc": "Age of Heroes"},
+      {"number": 98, "nation": "Patala", "desc": "Reign of the Nagas"},
+      {"number": 99, "nation": "Gath", "desc": "Last of the Giants"},
+      {"number": 100, "nation": "Ragha", "desc": "Dual Kingdom"},
+      {"number": 101, "nation": "Xibalba", "desc": "Return of the Zotz"},
+      {"number": 102, "nation": "Phlegra", "desc": "Sleeping Giants"},
+      {"number": 106, "nation": "Atlantis", "desc": "Frozen Sea"},
+      {"number": 107, "nation": "R’lyeh", "desc": "Dreamlands"},
+      {"number": 108, "nation": "Erytheia", "desc": "Kingdom of Two Worlds"},
+      ]
+    } 
+    Handlebars.registerHelper('getDropdownData', function(era) {
+
+      return "yes";
+    });
+
+    var current_team = 1;
+
+    $("#do_thing").on("click", function() {
+
+      console.log("getNationsAndTeams()",getNationsAndTeams());
+    });
+
+    $("#era_dropdown").on("change", function() {
+      console.log("era change!");
+      //TODO - maybe the code for this function should be inside here instead?
+      var specific_dropdown = false;
+      updateNationSelectDropdowns(specific_dropdown);
+    });
+
+    //To be called when era changes
+    //Resets all dropdowns to use the current era nations and sets to "please select" equivalent
+    function updateNationSelectDropdowns(specific_dropdown) {
+      var all_nation_select_inputs = $(".nation_select_input");
+      var era_dropdown = $("#era_dropdown");
+      var era_dropdown_value = era_dropdown.val();
+      var nation_data_to_use = [];
+
+      var dropdown_items_html = '<option value="-1" selected>Choose nation...</option>';
+      switch(era_dropdown_value) {
+        case "1":
+          nation_data_to_use = nations_data_json.early_ages;
+          break;
+        case "2":
+          nation_data_to_use = nations_data_json.middle_ages;
+          break;
+        case "3":
+          nation_data_to_use = nations_data_json.late_ages;
+          break;
+        default:
+          console.log("Something wrong with era!");
+      }
+      if(specific_dropdown) {
+        var selected_nations = [];
+          $(".nation_select_input").each(function(){
+            selected_nation = $(this).data("nation");
+            if(parseInt(selected_nation) > 0) {
+              selected_nations.push(""+selected_nation);
+            }
+          });
+        for(var nation of nation_data_to_use) {
+          dropdown_items_html += '<option value="'+nation.number+'" '+(jQuery.inArray(String(nation.number), selected_nations) > -1? "disabled":"")+' >'+nation.nation+' - '+nation.desc+'</option>';
+        }
+        console.log("map value",selected_nations);
+        specific_dropdown.html(dropdown_items_html);
+      } else {
+        for(var nation of nation_data_to_use) {
+          dropdown_items_html += '<option value="'+nation.number+'">'+nation.nation+' - '+nation.desc+'</option>';
+        }
+        all_nation_select_inputs.html(dropdown_items_html);
+      }
+    }
+
+    $("#add_team_button").on("click", function() {
+      console.log("Add team clicked!");
+      var players_container = $("#players_container");
+
+      var hb_team_template_source = document.getElementById("team_template").innerHTML;
+      var hb_team_template = Handlebars.compile(hb_team_template_source);
+      var hb_team_context = {team_number: current_team, nations: nations_data_json}; //TODO - hand relevant data to disciple entry
+      var hb_team_html = hb_team_template(hb_team_context);
+
+      players_container.append(hb_team_html);
+
+      current_team++;
+      bindTeamButtonEvents();
+      bindNationSelectEvents();
+      bindDiscipleEvents();
+      updateTeamNumbers();
+
+      //TODO - make this less of a mess
+      var last_team_container_added = players_container.find(".team_card_container").last().find(".nation_select_input");
+      updateNationSelectDropdowns(last_team_container_added);
+    });
+
+    function updateTeamNumbers() {
+      $(".team_number_display").text(function( index ) {
+        return ( index + 1 );
+      });
+    }
+
+    function updateConsoleCommand() {
+      var command_string = "";
+      console.log("updateCommand() called!");
+
+      return command_string;
+    }
+
+    //Command update functions
+    function getNationsAndTeams() {
+      var nations = [];
+      var all_teams = $("#players_container .team_card_container");
+      all_teams.each(function(index){
+        var team_number = index + 1;
+        var current_team = $(this);
+        var current_team_pretender = current_team.find(".team_pretender_container .nation_select_input").val();
+        var current_team_pretender_difficulty = current_team.find(".team_pretender_container .nation_difficulty_input").val();
+
+        if(current_team_pretender_difficulty !== "human") {
+          nations.push("--"+current_team_pretender_difficulty+" "+current_team_pretender);
+        }
+        nations.push("--team "+current_team_pretender+" "+team_number+" 1");
+
+        current_team.find(".team_disciple_container .disciple").each(function( index ) {
+          var disciple = $(this).find(".nation_select_input").val();
+          var disciple_difficulty = $(this).find(".nation_difficulty_input").val();
+          if(disciple_difficulty !== "human") {
+            nations.push("--"+disciple_difficulty+" "+disciple);
+          }
+          nations.push("--team "+disciple+" "+team_number+" 1");
+        });
+        
+      });
+      return nations.join(" ");
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    function bindNationSelectEvents() {
+      $(".nation_select_input").off("change.select_nation");
+      $(".nation_select_input").on("change.select_nation", function() {
+        var current_nation_select = $(this);
+        var current_nation_select_value = current_nation_select.val();
+
+        var previous_nation_value = current_nation_select.data("nation");
+
+        if(parseInt(previous_nation_value) >= 0) {
+          $('.nation_select_input option[value="'+previous_nation_value+'"]').prop('disabled', false);
+        }
+        current_nation_select.data("nation",current_nation_select_value);
+
+        if(parseInt(current_nation_select_value) >= 0) {
+
+          $('.nation_select_input').each(function( index ) {
+            var select = $(this);
+            if(select.data("nation") !== current_nation_select_value) {
+              select.find('option[value="'+current_nation_select_value+'"]').prop('disabled', true);
+            } else {
+              select.find('option[value="'+current_nation_select_value+'"]').prop('disabled', false);
+            }
+          });
+        }
+      });
+    }
+
+    function bindTeamButtonEvents() {
+      //delete_team_button
+      $(".delete_team_button").off("click.delete_team");
+      $(".delete_team_button").on("click.delete_team", function() {
+        console.log("Delete team clicked!");
+        var delete_team_button_clicked = $(this);
+        var team_to_delete = delete_team_button_clicked.closest(".team_card_container");
+        // team_to_delete.remove();
+        team_to_delete.fadeOut(300, function() { 
+          $(this).remove();
+          updateTeamNumbers();
+          //TODO: Update numbers here
+        });
+      });
+    }
+
+    function bindDiscipleEvents() {
+      //Disciple buttons
+      $(".add_disciple_button").off("click.add_disciple");
+      $(".add_disciple_button").on("click.add_disciple", function() {
+        console.log("Add disciple clicked!");
+        var disciple_button_clicked = $(this);
+        var disciples_container = disciple_button_clicked.closest(".team_disciple_container").find(".team_disciples");
+
+        var hb_disciples_template_source = document.getElementById("team_disciple_template").innerHTML;
+        var hb_disciples_template = Handlebars.compile(hb_disciples_template_source);
+        var hb_disciple_context = {team_number: "1"}; //TODO - hand relevant data to disciple entry
+        var hb_disciple_html = hb_disciples_template(hb_disciple_context);
+
+        disciples_container.append(hb_disciple_html);
+
+        var disciple_delete_buttons = disciples_container.find(".delete_disciple_button");
+        //Bind delete button
+        disciple_delete_buttons.off("click.delete_disciple");
+        disciple_delete_buttons.on("click.delete_disciple", function() {
+          console.log("Delete disciple clicked!");
+          var delete_disciple_button_clicked = $(this);
+          var disciple_to_delete = delete_disciple_button_clicked.closest(".disciple");
+
+          // team_to_delete.remove();
+          disciple_to_delete.fadeOut(300, function() { 
+            $(this).remove();
+            //TODO: Update numbers here
+          });
+        });
+
+        bindNationSelectEvents();
+
+        var last_disciples_select_added = disciples_container.find(".nation_select_input").last();
+        updateNationSelectDropdowns(last_disciples_select_added);
+      });
+    }
+
+
+  </script>
+</body>
+</html>
