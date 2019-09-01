@@ -9,13 +9,13 @@
   <link rel="stylesheet" href="css/main.css" type="text/css">
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" type="text/css">
   <style type="text/css">
-    .nation_select_input option:checked {
-      background-color: pink;
-    }
-    .nation_select_input option:disabled {
-      background-color: pink;
-    }
-  </style>
+  .nation_select_input option:checked {
+    background-color: pink;
+  }
+  .nation_select_input option:disabled {
+    background-color: pink;
+  }
+</style>
 
 
 <!-- 
@@ -70,10 +70,9 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
       <div class="row">
         <div class="col">
           <h1 class="display-4">Dominions 5 Admin tools
-            <small class="text-muted">Some text also</small>
           </h1>
           <p class="lead">
-            Created by James, please <a href="#" target="_blank">raise a pull request</a> to contribute, contact: <a href="https://twitter.com/JamesPaulDuncan" target="_blank">@JamesPaulDuncan</a>
+            Created by <a href="https://twitter.com/JamesPaulDuncan" target="_blank">@JamesPaulDuncan</a>, please <a href="#" target="_blank">raise a pull request</a> to contribute.
           </p>
         </div>
       </div>
@@ -104,12 +103,6 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
           <small class="form-text text-muted">Changing this resets nations</small>
         </div>
       </div>
-      <div class="form-row">
-        <!-- Add team -->
-        <div class="col-md-3 form-group">
-          <button id="do_thing" type="button" class="btn btn-outline-success btn-sm">Do thing <i class="fas fa-plus-square fa-spin"></i></button>
-        </div>
-      </div>
       <!-- SECOND ROW -->
       <div class="form-row">
         <!-- Add team -->
@@ -123,22 +116,26 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
     </div> <!-- END INPUT AREA -->
 
 
-
-    <div class="output_area">
+    <div id="output_area">
       <div class="row">
         <div class="col">
           <h3>Result command(s)</h3>
           <div class="card">
             <div class="card-body">
-              <h5 class="card-title">Game start command</h5>
-              <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+              <h5 class="card-title">Game start command 
+                <button id="refresh_command" type="button" class="btn btn-outline-success btn-sm">Generate command <i class="fas fa-sync-alt fa-spin"></i></button>
+              </h5>
+              <h6 class="card-subtitle mb-2 text-muted">Copy and paste this command into your server</h6>
               <p class="card-text">
+                <div id="output_errors">
+
+                </div>
                 <div class="alert alert-secondary" role="alert">
                   <code id="result_code_block">
                   ./dom5.sh -TS --era 2 --renaming --hofsize 20 --requiredap 14 --thrones 0 10 0 --port 2479 --hours 32 --mapfile silentseas.map jamestestgame</code>
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm">Copy</button>
-                <button type="button" class="btn btn-outline-primary btn-sm">Share</button>
+                <button id="copy_command" type="button" class="btn btn-outline-primary btn-sm">Copy</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" disabled>Share</button>
               </p>
             </div>
           </div>
@@ -237,6 +234,15 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
     </div>
   </script>
 
+  <script id="error_msg_template" type="text/x-handlebars-template">
+    <div class="alert alert-{{alert_type}} alert-dismissible fade show" role="alert">
+      <strong>Error!</strong> {{message}}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+  </script>
+  
 
 
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
@@ -344,22 +350,53 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
       ]
     } 
     Handlebars.registerHelper('getDropdownData', function(era) {
-
       return "yes";
     });
 
     var current_team = 1;
-
-    $("#do_thing").on("click", function() {
-
-      console.log("getNationsAndTeams()",getNationsAndTeams());
-    });
+    var errors_array = [];
 
     $("#era_dropdown").on("change", function() {
       console.log("era change!");
       //TODO - maybe the code for this function should be inside here instead?
       var specific_dropdown = false;
       updateNationSelectDropdowns(specific_dropdown);
+    });
+
+    $("#refresh_command").on("click", function() {
+
+      let result_string = generateCommand();
+      //output_area output_errors 
+      let code_output_area = $("#result_code_block");
+      let errors_output_area = $("#output_errors");
+      errors_output_area.html("");
+
+      for(let i = 0; i < errors_array.length; i++) {
+        var hb_error_message_template_source = document.getElementById("error_msg_template").innerHTML;
+        var hb_error_template = Handlebars.compile(hb_error_message_template_source);
+        var hb_error_context = {message: errors_array[i].message, alert_type: errors_array[i].error_type};
+        var hb_error_html = hb_error_template(hb_error_context);
+
+        errors_output_area.append(hb_error_html);
+      }
+
+      code_output_area.text(result_string);
+    });
+
+    $("#copy_command").on("click", function() {
+      let copy_button_clicked = $(this);
+
+      let range = document.createRange();
+      range.selectNode(document.getElementById("result_code_block"));
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      document.execCommand("copy")
+
+      copy_button_clicked.text("Copied!");
+      setTimeout(function() {
+          copy_button_clicked.text("Copy");
+        }, 2000);
+
     });
 
     //To be called when era changes
@@ -373,25 +410,25 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
       var dropdown_items_html = '<option value="-1" selected>Choose nation...</option>';
       switch(era_dropdown_value) {
         case "1":
-          nation_data_to_use = nations_data_json.early_ages;
-          break;
+        nation_data_to_use = nations_data_json.early_ages;
+        break;
         case "2":
-          nation_data_to_use = nations_data_json.middle_ages;
-          break;
+        nation_data_to_use = nations_data_json.middle_ages;
+        break;
         case "3":
-          nation_data_to_use = nations_data_json.late_ages;
-          break;
+        nation_data_to_use = nations_data_json.late_ages;
+        break;
         default:
-          console.log("Something wrong with era!");
+        console.log("Something wrong with era!");
       }
       if(specific_dropdown) {
         var selected_nations = [];
-          $(".nation_select_input").each(function(){
-            selected_nation = $(this).data("nation");
-            if(parseInt(selected_nation) > 0) {
-              selected_nations.push(""+selected_nation);
-            }
-          });
+        $(".nation_select_input").each(function(){
+          var selected_nation = $(this).data("nation");
+          if(parseInt(selected_nation) > 0) {
+            selected_nations.push(""+selected_nation);
+          }
+        });
         for(var nation of nation_data_to_use) {
           dropdown_items_html += '<option value="'+nation.number+'" '+(jQuery.inArray(String(nation.number), selected_nations) > -1? "disabled":"")+' >'+nation.nation+' - '+nation.desc+'</option>';
         }
@@ -440,9 +477,91 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
       return command_string;
     }
 
+    function generateCommand() {
+      errors_array = [];
+      commands_array = [];
+
+      commands_array.push(getStartCommand());
+      commands_array.push(getWorldSettings());
+      commands_array.push(getNationsAndTeams());
+      commands_array.push(getMods());
+      commands_array.push(getMapAndGameName());
+
+      //TODO: Check error array for errors, if any, display them
+      if(errors_array.length > 0) {
+        console.log("Errors found!");
+        console.table(errors_array);
+      }
+
+      return commands_array.join(" ");
+    }
     //Command update functions
+    function getStartCommand() {
+      let game_start_command = "screen ~/.steam/SteamApps/common/Dominions5/dom5.sh";
+      let server_options = "-TS"; //(T: "--textonly", S: "--tcpserver")
+      let steam_options = "--nosteam"; //(DEF - do not connect to steam, workshop is unavailable)
+
+      let port_number = $("#game_port").val(); //id="game_port" name="game_port" type="number" min="1024" max="25535"
+      let port_number_fallback = "1234";
+      let port_number_string = "--port ";
+
+      let game_era = $("#era_dropdown").val();
+      let game_era_string = "--era ";
+
+      let max_turn_duration = "48"; //TODO: add input for this
+      let hours_string = "--hours "; 
+      
+      if(port_number) {
+        if(parseInt(port_number) >= 1024 && parseInt(port_number) <= 25535) {
+          port_number_string += port_number;
+        } else {
+          logError("Port number is too high or two low - setting to '1234'. min = 1024, max = 25535.", "warning");
+          port_number_string += port_number_fallback;
+        }
+      } else {
+        logError("Port number not set or invalid - setting to '1234'.", "warning");
+        port_number_string += port_number_fallback;
+      }
+
+      if(game_era) {
+        if(parseInt(game_era) === 1 || parseInt(game_era) === 2 || parseInt(game_era) === 3) {
+          game_era_string += game_era;
+        } else {
+          logError("Game era is invalid - setting to Early Ages (1). Accepted values are 1, 2 or 3 aka: 'Early' 'Middle' or 'Late'.", "warning");
+          game_era_string += "1";
+        }
+      } else {
+        logError("Game era is invalid - setting to Early Ages (1).", "warning");
+        game_era_string += "1";
+      }
+
+      if(max_turn_duration) {
+        if(parseInt(max_turn_duration) > 0) {
+          hours_string += max_turn_duration;
+        } else {
+          logError("Max turn duration is less than 0 hours - ssetting to 48 hours.", "warning");
+          hours_string += "48";
+        }
+      } else {
+        logError("Max turn duration not set - setting to 48 hours.", "warning");
+        hours_string += "48";
+      }
+
+      return game_start_command + " " + server_options + " " + steam_options + " " + port_number_string + " " + game_era_string + " " + hours_string;
+    }
+
+    function getWorldSettings() {
+      //--renaming --scoregraphs --teamgame --hofsize 20 --requiredap 20 --thrones 5 10 0 --port 2333 --hours 32
+      return "--renaming --scoregraphs --teamgame --hofsize 20 --requiredap 20 --thrones 5 10 0";
+    }
     function getNationsAndTeams() {
+      //TODO: If a nation is -1 or otherwise invalid - log the relevant error message.
+      //TODO: processed closed nations and check if any nations are in the closed group.
+      //TODO: append closed nations to string
+      //TODO: Handle "--clustered"
       var nations = [];
+      let pretender_number = "1";
+      let disciple_number = "2";
       var all_teams = $("#players_container .team_card_container");
       all_teams.each(function(index){
         var team_number = index + 1;
@@ -453,7 +572,11 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
         if(current_team_pretender_difficulty !== "human") {
           nations.push("--"+current_team_pretender_difficulty+" "+current_team_pretender);
         }
-        nations.push("--team "+current_team_pretender+" "+team_number+" 1");
+        nations.push("--team "+current_team_pretender+" "+team_number+" "+pretender_number);
+
+        if(getNationByNumber(current_team_pretender).length === 0) {
+          logError("Team "+team_number+" pretender nation is invalid or not set.");
+        }
 
         current_team.find(".team_disciple_container .disciple").each(function( index ) {
           var disciple = $(this).find(".nation_select_input").val();
@@ -461,14 +584,62 @@ screen ~/.steam/SteamApps/common/Dominions5/dom5.sh
           if(disciple_difficulty !== "human") {
             nations.push("--"+disciple_difficulty+" "+disciple);
           }
-          nations.push("--team "+disciple+" "+team_number+" 1");
+          nations.push("--team "+disciple+" "+team_number+" "+disciple_number);
+
+          if(getNationByNumber(disciple).length === 0) {
+            logError("Team " + team_number + " disciple " + (index+1) + " nation is invalid or not set.");
+          }
         });
         
       });
-      return nations.join(" ");
+
+      if(nations.length <= 0) {
+        logError("No nations set!");
+        return "";
+      } else {
+        return nations.join(" ");
+      }
     }
 
+    function getMods() {
+      //--statuspage turns --enablemod james_test_mod_2.dm
+      return "--statuspage turns --enablemod james_test_mod_2.dm";
+    }
 
+    function getMapAndGameName() {
+      //--mapfile GIANTS.map giants_and_giants_test_2
+      return "--mapfile GIANTS.map giants_and_giants_test_2";
+    }
+
+    function logError(message, type) {
+      let error_type = 'danger';
+      if(typeof type !== 'undefined') {
+        error_type = type;
+      }
+      
+      errors_array.push({"message":message, "error_type": error_type});
+    }
+
+    function getNationByNumber(nation_number) {
+      let current_era = $("#era_dropdown").val();
+      if(current_era === "3") {
+        return nations_data_json.late_ages.filter(
+          function(data){ 
+            return data.number == nation_number;
+          });
+      } else if(current_era === "2") {
+        return nations_data_json.middle_ages.filter(
+          function(data){ 
+            return data.number == nation_number;
+          });
+      } else {
+        //Era is 1
+        return nations_data_json.early_ages.filter(
+          function(data){ 
+            return data.number === parseInt(nation_number);
+          });
+      }
+    }
 
 
 
